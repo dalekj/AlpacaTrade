@@ -105,7 +105,7 @@ function _request(api::RESTParams, method::String, path::String, data=nothing; b
     if data !== nothing
         if uppercase(method) in ["GET", "DELETE"]
             body = ""
-            query = rstrip(replace(HTTP.URIs.escapeuri(data), "stop" => "end"), '&')
+            query = strip(replace(HTTP.URIs.escapeuri(data), "stop" => "end"), '&')
         else
             body = json(data)
             query = ""
@@ -125,9 +125,9 @@ function _request(api::RESTParams, method::String, path::String, data=nothing; b
         try
             res = HTTP.request(method, url, header, body; query=query, status_exception=true)
 
-            res_json = JSON.parse(String(res.body))
+            res_dict = JSON.parse(String(res.body))
 
-            return res_json
+            return res_dict
         catch err
             if isa(err, HTTP.StatusError) && in(err.status, api.retry_codes)
                 @debug err.status
@@ -155,6 +155,15 @@ function wrap_response(::Type{T}, res::AbstractDict) where {T <: AbstractEntity}
 end
 
 ## Live Trading
+
+function get_assets(api::RESTParams; status::Maybe{<:AbstractString}=nothing, asset_class::Maybe{<:AbstractString}="us_equity")
+
+    params = (status=status, asset_class=asset_class)
+
+    assets = _request(api, "GET", "/assets", params)
+
+    return (wrap_response(Asset, asset) for asset in assets)
+end
 
 function get_account(api::RESTParams)
     return wrap_response(Account, _request(api, "GET", "/account"; base_url=api.base_url))
